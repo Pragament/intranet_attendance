@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Punch In/Punch Out</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    input { padding: 10px; margin-bottom: 20px; width: 200px; }
+    button { padding: 10px 20px; margin: 5px; }
+    .message { margin-top: 20px; color: green; font-size: 16px; }
+  </style>
+</head>
+<body>
+
+  <h1>Employee Punch In/Punch Out</h1>
+  
+  <input type="text" id="name" placeholder="Enter your name" />
+  <br />
+  <button onclick="punchIn()">Punch In</button>
+  <button onclick="punchOut()">Punch Out</button>
+
+  <div class="message" id="message"></div>
+
+  <script>
+    async function punchIn() {
+      const name = document.getElementById('name').value;
+      if (!name) {
+        alert("Please enter your name");
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/punchIn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      const data = await response.json();
+      document.getElementById('message').textContent = data.message || data.error;
+    }
+
+    async function punchOut() {
+      const name = document.getElementById('name').value;
+      if (!name) {
+        alert("Please enter your name");
+        return;
+      }
+
+      const response = await fetch('http://localhost:5000/punchOut', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+
+      const data = await response.json();
+      document.getElementById('message').textContent = data.message || data.error;
+    }
+  </script>
+
+</body>
+</html>
