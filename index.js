@@ -1,72 +1,64 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
-const cors = require('cors');
-const moment = require('moment-timezone'); // Import moment-timezone for IST timezone handling
-const path = require('path'); // Import path module to resolve file paths
+const axios = require('axios');
+const moment = require('moment-timezone');
 const app = express();
+const path = require('path');
+const fs = require('fs'); // To work with file system
 const PORT = 5000;
 
+// Your GitHub Token and Repo Details
+const GITHUB_TOKEN = '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';
+const REPO_OWNER = 'Pragament';
+const REPO_NAME = 'intranet_attendance'; // Your repo name
+const FILE_PATH = 'attendance.json'; // File inside your repo to store attendance
+
 // Middleware
-app.use(cors());
 app.use(bodyParser.json());
 
 // Serve static files (e.g., index.html, styles.css, scripts.js)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Connect to MongoDB
-mongoose
-  .connect('mongodb://127.0.0.1/punchInPunchOut')
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('Failed to connect to MongoDB', err));
-
-// Employee Punch Schema
-const employeeSchema = new mongoose.Schema(
-  {
-    name: String,
-    punchInTime: { type: String }, // Store time in IST format as a string
-    punchOutTime: { type: String }, // Store time in IST format as a string
-    date: { type: String, unique: true }, // Ensure date is unique per user
-    createdAt: { type: Date, default: Date.now }, // Store createdAt as Date in IST
-    updatedAt: { type: Date, default: Date.now }, // Store updatedAt as Date in IST
-  },
-  {
-    timestamps: false, // Disable default timestamps from Mongoose
-  }
-);
-
-// Middleware to handle manually setting `createdAt` and `updatedAt` in IST for each save
-employeeSchema.pre('save', function (next) {
-  const nowInIST = moment().tz('Asia/Kolkata').toDate(); // Get the current time in IST
-
-  if (this.isNew) {
-    // Set createdAt and updatedAt manually for new documents
-    this.createdAt = nowInIST;
-    this.updatedAt = nowInIST;
-  } else {
-    // Update the updatedAt for existing documents
-    this.updatedAt = nowInIST;
-  }
-
-  next();
+// Optionally, you can define the root route (GET '/') to serve the index.html file explicitly
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Middleware to convert createdAt and updatedAt to IST format when sending responses
-employeeSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  const timeZone = 'Asia/Kolkata';
+// Function to create or update the attendance file in GitHub
+const updateGitHubFile = async (filename, content) => {
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${filename}`;
 
-  // Convert createdAt and updatedAt to IST (only when sending to the client)
-  if (obj.createdAt) {
-    obj.createdAt = moment(obj.createdAt).tz(timeZone).format('YYYY-MM-DD HH:mm:ss');
-  }
-  if (obj.updatedAt) {
-    obj.updatedAt = moment(obj.updatedAt).tz(timeZone).format('YYYY-MM-DD HH:mm:ss');
-  }
-  return obj;
+  // Get the current file from GitHub to get the sha (if it exists)
+  const fileResponse = await axios.get(url, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}` }
+  }).catch(() => null);
+
+  const sha = fileResponse ? fileResponse.data.sha : null; // Get sha if file exists, else null
+
+  const base64Content = Buffer.from(content).toString('base64');
+
+  const commitMessage = `Update attendance data`;
+
+  // Prepare request payload
+  const data = {
+    message: commitMessage,
+    content: base64Content,
+    sha: sha // Only include sha if the file exists
+  };
+
+  // Post request to update file on GitHub
+  const response = await axios.put(url, data, {
+    headers: { Authorization: `token ${GITHUB_TOKEN}` }
+  });
+
+  return response.data;
 };
 
-const EmployeePunch = mongoose.model('EmployeePunch', employeeSchema);
+// Helper function to get today's date in the format "DD-MM-YYYY"
+const getTodayDate = () => {
+  const nowInIST = moment().tz('Asia/Kolkata');
+  return nowInIST.format('DD-MM-YYYY'); // Format date as DD-MM-YYYY
+};
 
 // Route to handle punch-in
 app.post('/punchIn', async (req, res) => {
@@ -77,61 +69,108 @@ app.post('/punchIn', async (req, res) => {
   }
 
   try {
-    // Get current time in IST
-    const nowInIST = moment().tz('Asia/Kolkata');
-    const date = nowInIST.format('DD/MM/YYYY'); // Format date as DD/MM/YYYY
-    const punchInTime = nowInIST.format('YYYY-MM-DD HH:mm:ss'); // Format time as a string in IST
+    const date = getTodayDate(); // Get today's date
+    const punchInTime = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'); // Current time in IST
 
-    // Check if a record already exists for the user on the same date
-    const existingRecord = await EmployeePunch.findOne({ name, date });
-
-    if (existingRecord) {
-      return res.status(400).json({ message: 'Already punched in for today' });
+    // Fetch existing attendance data from GitHub (if any)
+    let existingData = {};
+    try {
+      const fileResponse = await axios.get(
+        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+        {
+          headers: { Authorization: `token ${GITHUB_TOKEN}` }
+        }
+      );
+      const base64Content = fileResponse.data.content;
+      existingData = JSON.parse(Buffer.from(base64Content, 'base64').toString());
+    } catch (error) {
+      // If no file exists, initialize with an empty object
+      existingData = {};
     }
 
-    // Create a new punch-in record
-    const newPunch = new EmployeePunch({
-      name,
-      punchInTime, // Save IST punch-in time as a string
-      date, // Save IST date
-    });
+    // Check if the student has already punched in for the current day
+    const todayData = existingData[date] || [];
+    const existingRecord = todayData.find(
+      (record) => record.name === name && record.punchInTime
+    );
 
-    // Save the record to MongoDB
-    await newPunch.save();
+    if (existingRecord) {
+      return res.status(400).json({ message: 'You have already punched in today' });
+    }
 
-    // Respond with punch-in time formatted in IST
-    return res.status(200).json({
+    // Prepare attendance data
+    const punchInData = {
+      name: name,
+      date: date,
+      punchInTime: punchInTime,
+      punchOutTime: null, // Initially, no punch-out time
+    };
+
+    // Add the new punch-in data to the existing data for today
+    todayData.push(punchInData);
+    existingData[date] = todayData;
+
+    // Update the attendance file with the new data
+    const updateResponse = await updateGitHubFile(FILE_PATH, JSON.stringify(existingData, null, 2));
+
+    res.status(200).json({
       message: 'Punched in successfully',
-      punchInTime: nowInIST.format('h:mm:ss A'), // Send the time in IST format to the frontend
+      punchInTime: punchInTime,
     });
   } catch (error) {
     console.error('Error punching in:', error);
-    return res.status(500).json({ message: 'Error punching in', error });
+    res.status(500).json({ message: 'Error punching in', error });
   }
 });
 
 // Route to handle punch-out
 app.post('/punchOut', async (req, res) => {
   const { name } = req.body;
-  const date = moment().tz('Asia/Kolkata').format('DD/MM/YYYY'); // Use IST date format
+
+  if (!name) {
+    return res.status(400).json({ message: 'Please provide a name' });
+  }
 
   try {
-    const record = await EmployeePunch.findOne({ name, date, punchOutTime: { $exists: false } });
+    const date = getTodayDate(); // Get today's date
+    const punchOutTime = moment().tz('Asia/Kolkata').format('YYYY-MM-DD HH:mm:ss'); // Current time in IST
 
-    if (!record) {
-      return res.status(400).json({ message: 'No punch-in record found or already punched out' });
+    // Fetch existing attendance data from GitHub (if any)
+    let existingData = {};
+    try {
+      const fileResponse = await axios.get(
+        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${FILE_PATH}`,
+        {
+          headers: { Authorization: `token ${GITHUB_TOKEN}` }
+        }
+      );
+      const base64Content = fileResponse.data.content;
+      existingData = JSON.parse(Buffer.from(base64Content, 'base64').toString());
+    } catch (error) {
+      // If no file exists, initialize with an empty object
+      existingData = {};
     }
 
-    // Get current punch-out time in IST
-    const nowInIST = moment().tz('Asia/Kolkata');
-    record.punchOutTime = nowInIST.format('YYYY-MM-DD HH:mm:ss'); // Save punch-out time as a string in IST format
+    // Check if the student has punched in today
+    const todayData = existingData[date] || [];
+    const existingRecord = todayData.find(
+      (record) => record.name === name && record.punchInTime && !record.punchOutTime
+    );
 
-    await record.save();
+    if (!existingRecord) {
+      return res.status(400).json({ message: 'You need to punch in first before punching out' });
+    }
 
-    // Respond with punch-out time formatted in IST
+    // Update punch-out time for the student
+    existingRecord.punchOutTime = punchOutTime;
+    existingData[date] = todayData;
+
+    // Update the attendance file for the day on GitHub
+    const updateResponse = await updateGitHubFile(FILE_PATH, JSON.stringify(existingData, null, 2));
+
     res.status(200).json({
       message: 'Punched out successfully',
-      punchOutTime: nowInIST.format('h:mm:ss A'), // Send the time in IST format to the frontend
+      punchOutTime: punchOutTime,
     });
   } catch (error) {
     console.error('Error punching out:', error);
@@ -139,18 +178,7 @@ app.post('/punchOut', async (req, res) => {
   }
 });
 
-// Route to fetch all employee records
-app.get('/records', async (req, res) => {
-  try {
-    const records = await EmployeePunch.find({});
-    res.status(200).json(records);
-  } catch (error) {
-    console.error('Error fetching records:', error);
-    res.status(500).json({ message: 'Error fetching records', error });
-  }
-});
-
-// Start server
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

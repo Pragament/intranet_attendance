@@ -5,15 +5,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Employee Punch In/Punch Out</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    input { padding: 10px; margin-bottom: 20px; width: 200px; }
-    button { padding: 10px 20px; margin: 5px; }
-    .message { margin-top: 20px; color: green; font-size: 16px; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
+      background-color: #f4f4f9;
+    }
+    h1 {
+      color: #333;
+    }
+    input {
+      padding: 10px;
+      margin-bottom: 20px;
+      width: 200px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      background-color: #4CAF50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .message {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    .success {
+      color: green;
+    }
+    .error {
+      color: red;
+    }
   </style>
 </head>
 <body>
 
-  <h1>Employee Punch In/Punch Out</h1>
+  <h1>Pragament Tech Solutions PVT LTD</h1>
   
   <input type="text" id="name" placeholder="Enter your name" />
   <br />
@@ -37,7 +72,7 @@
       });
 
       const data = await response.json();
-      document.getElementById('message').textContent = data.message || data.error;
+      displayMessage(data);
     }
 
     async function punchOut() {
@@ -54,7 +89,18 @@
       });
 
       const data = await response.json();
-      document.getElementById('message').textContent = data.message || data.error;
+      displayMessage(data);
+    }
+
+    function displayMessage(data) {
+      const messageDiv = document.getElementById('message');
+      if (data.message) {
+        messageDiv.textContent = data.message;
+        messageDiv.className = 'message success'; // Add success class for green color
+      } else if (data.error) {
+        messageDiv.textContent = data.error;
+        messageDiv.className = 'message error'; // Add error class for red color
+      }
     }
   </script>
 
