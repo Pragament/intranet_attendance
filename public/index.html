@@ -65,7 +65,7 @@
         return;
       }
 
-      const response = await fetch('http://localhost:5000/punchIn', {
+      const response = await fetch('http://192.168.1.112:5000/punchIn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -82,7 +82,7 @@
         return;
       }
 
-      const response = await fetch('http://localhost:5000/punchOut', {
+      const response = await fetch('http://192.168.1.112:5000/punchOut', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
