@@ -11,6 +11,12 @@
       "date": "07-01-2025",
       "punchInTime": "2025-01-07 15:37:40",
       "punchOutTime": "2025-01-07 15:38:22"
+    },
+    {
+      "name": "ayyappa",
+      "date": "07-01-2025",
+      "punchInTime": "2025-01-07 15:42:00",
+      "punchOutTime": null
     }
   ]
 }
