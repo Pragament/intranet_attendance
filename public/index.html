@@ -14,18 +14,13 @@
     h1 {
       color: #333;
     }
-    input {
+    select, button {
       padding: 10px;
-      margin-bottom: 20px;
-      width: 200px;
+      margin: 10px;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
     button {
-      padding: 10px 20px;
-      margin: 5px;
-      border: none;
-      border-radius: 4px;
       background-color: #4CAF50;
       color: white;
       cursor: pointer;
@@ -50,8 +45,15 @@
 
   <h1>Pragament Tech Solutions PVT LTD</h1>
   
-  <input type="text" id="name" placeholder="Enter your name" />
+  <!-- Dropdown for names -->
+  <select id="name">
+    <option value="" disabled selected>Select your name</option>
+    <option value="Shiva Kumar">Shiva Kumar</option>
+    <option value="Ayyappa Swamy">Ayyappa Swamy</option>
+    <option value="Lakshmi Naveena">Lakshmi Naveena</option>
+  </select>
   <br />
+  
   <button onclick="punchIn()">Punch In</button>
   <button onclick="punchOut()">Punch Out</button>
 
@@ -61,7 +63,7 @@
     async function punchIn() {
       const name = document.getElementById('name').value;
       if (!name) {
-        alert("Please enter your name");
+        alert("Please select your name");
         return;
       }
 
@@ -78,7 +80,7 @@
     async function punchOut() {
       const name = document.getElementById('name').value;
       if (!name) {
-        alert("Please enter your name");
+        alert("Please select your name");
         return;
       }
 
