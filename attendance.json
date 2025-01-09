@@ -18,5 +18,13 @@
       "punchInTime": "2025-01-08 10:27:32",
       "punchOutTime": "2025-01-08 16:21:38"
     }
+  ],
+  "09-01-2025": [
+    {
+      "name": "Lakshmi Naveena",
+      "date": "09-01-2025",
+      "punchInTime": "2025-01-09 10:26:02",
+      "punchOutTime": null
+    }
   ]
 }
